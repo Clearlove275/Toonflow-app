@@ -5,12 +5,15 @@ import { getConfiguredModel } from "@/utils/ai";
 export async function createAgentModel(providerId: string, modelId: string, thinkingLevel = "off") {
   const configured = getConfiguredModel(providerId, modelId);
   const { provider, model, baseUrl } = configured;
+  const useAdaptiveThinking = provider.protocol === "anthropic-messages"
+    && /^(?:[^/]+\/)?claude-(?:opus|sonnet|haiku)-5[.-]5(?:$|[-.])/i.test(model.id);
   const runtime = await ModelRuntime.create({ credentials: new InMemoryCredentialStore(), modelsPath: null, refreshOnCreate: false });
   runtime.registerProvider(providerId, {
     api: provider.protocol,
     baseUrl,
     models: [{
       id: model.id, name: model.label, reasoning: thinkingLevel !== "off",
+      ...(useAdaptiveThinking ? { compat: { forceAdaptiveThinking: true } } : {}),
       // ACT: 保留图片输入，由实际供应方判断该模型是否支持。
       input: ["text", "image"],
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
